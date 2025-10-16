@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast - 7 Day Weather App</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+    <div class="app">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="container">
+                <h1 class="header__title">Weather Forecast</h1>
+                <div class="search-container">
+                    <div class="search-box">
+                        <input type="text" id="cityInput" class="form-control search-input" placeholder="Search for a city..." autocomplete="off">
+                        <button id="searchBtn" class="btn btn--primary search-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button id="locationBtn" class="btn btn--outline location-btn" title="Use current location">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Loading weather data...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message hidden">
+            <div class="container">
+                <div class="error-card">
+                    <h3>Oops! Something went wrong</h3>
+                    <p id="errorText">Unable to fetch weather data. Please try again.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                <!-- Current Weather Section -->
+                <section id="currentWeather" class="current-weather hidden">
+                    <div class="current-weather__card">
+                        <div class="current-weather__header">
+                            <div class="location-info">
+                                <h2 id="locationName">New York, NY</h2>
+                                <p id="currentDate"></p>
+                            </div>
+                            <div class="weather-icon">
+                                <img id="currentIcon" src="" alt="Weather icon" width="80" height="80">
+                            </div>
+                        </div>
+                        
+                        <div class="current-weather__main">
+                            <div class="temperature-display">
+                                <span id="currentTemp">--</span>
+                                <span class="temp-unit">°C</span>
+                            </div>
+                            <div class="weather-description">
+                                <p id="weatherDescription">Loading...</p>
+                                <p class="feels-like">Feels like <span id="feelsLike">--</span>°C</p>
+                            </div>
+                        </div>
+
+                        <div class="current-weather__details">
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2v2"/>
+                                        <path d="m4.93 4.93 1.41 1.41"/>
+                                        <path d="M20 12h2"/>
+                                        <path d="m19.07 4.93-1.41 1.41"/>
+                                        <path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/>
+                                        <path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>
+                                    </svg>
+                                </div>
+                                <div class="detail-info">
+                                    <span class="detail-label">Humidity</span>
+                                    <span id="humidity">--%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+                                        <path d="M22 10a3 3 0 0 0-3-3h-2.207a5.502 5.502 0 0 0-10.702.5"/>
+                                    </svg>
+                                </div>
+                                <div class="detail-info">
+                                    <span class="detail-label">Wind</span>
+                                    <span id="windSpeed">-- km/h</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="m3 15 4-8 5 5 4-8"/>
+                                        <path d="M4 16 l-1 5 6-2 3.5-7"/>
+                                    </svg>
+                                </div>
+                                <div class="detail-info">
+                                    <span class="detail-label">Pressure</span>
+                                    <span id="pressure">-- hPa</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="5"/>
+                                        <path d="M12 1v2"/>
+                                        <path d="M12 21v2"/>
+                                        <path d="M4.22 4.22l1.42 1.42"/>
+                                        <path d="M18.36 18.36l1.42 1.42"/>
+                                        <path d="M1 12h2"/>
+                                        <path d="M21 12h2"/>
+                                        <path d="M4.22 19.78l1.42-1.42"/>
+                                        <path d="M18.36 5.64l1.42-1.42"/>
+                                    </svg>
+                                </div>
+                                <div class="detail-info">
+                                    <span class="detail-label">UV Index</span>
+                                    <span id="uvIndex">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 7-Day Forecast Section -->
+                <section id="forecast" class="forecast hidden">
+                    <h2 class="forecast__title">7-Day Forecast</h2>
+                    <div class="forecast__container" id="forecastContainer">
+                        <!-- Forecast cards will be dynamically inserted here -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
