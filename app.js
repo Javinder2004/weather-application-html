@@ -1,6 +1,9 @@
 class WeatherApp {
     constructor() {
         this.currentLocation = null;
+        this.isFahrenheit = false; // ✅ Track unit preference
+        this.lastWeatherData = null;
+        this.lastLocationName = null;
         this.init();
     }
 
@@ -14,6 +17,7 @@ class WeatherApp {
         const searchBtn = document.getElementById('searchBtn');
         const cityInput = document.getElementById('cityInput');
         const locationBtn = document.getElementById('locationBtn');
+        const toggleBtn = document.getElementById('unitToggle');
 
         searchBtn.addEventListener('click', () => this.handleSearch());
         cityInput.addEventListener('keypress', (e) => {
@@ -22,9 +26,22 @@ class WeatherApp {
             }
         });
         locationBtn.addEventListener('click', () => this.getCurrentLocation());
+
+        // ✅ Toggle temperature unit
+        toggleBtn.addEventListener('click', () => this.toggleTemperatureUnit());
     }
 
-    // CONVERT CELSIUS TO FAHRENHEIT
+    toggleTemperatureUnit() {
+        this.isFahrenheit = !this.isFahrenheit;
+
+        document.getElementById('unitToggle').textContent =
+            this.isFahrenheit ? "Switch to °C" : "Switch to °F";
+
+        if (this.lastWeatherData && this.lastLocationName) {
+            this.updateWeatherDisplay(this.lastWeatherData, this.lastLocationName);
+        }
+    }
+
     convertToFahrenheit(celsius) {
         return (celsius * 9 / 5) + 32;
     }
@@ -114,17 +131,11 @@ class WeatherApp {
 
     getCurrentLocation() {
         if (!navigator.geolocation) {
-            this.showError('Geolocation is not supported by this browser. Please search for a city instead.');
+            this.showError('Geolocation is not supported by this browser.');
             return;
         }
 
         this.showLoading();
-
-        const options = {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 300000 // 5 minutes
-        };
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -132,94 +143,54 @@ class WeatherApp {
                     const { latitude, longitude } = position.coords;
                     await this.fetchWeatherData(latitude, longitude);
                 } catch (error) {
-                    console.error('Error processing location:', error);
-                    this.showError('Error getting weather for your location. Please try searching for a city.');
+                    this.showError('Error getting weather. Try searching for a city.');
                 }
             },
-            (error) => {
-                console.error('Geolocation error:', error);
-                let errorMessage = 'Unable to get your location. ';
-
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage += 'Location access was denied. Please search for a city instead.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage += 'Location information is unavailable. Please search for a city instead.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage += 'Location request timed out. Please search for a city instead.';
-                        break;
-                    default:
-                        errorMessage += 'Please search for a city instead.';
-                        break;
-                }
-
-                this.showError(errorMessage);
-            },
-            options
+            async () => {
+                await this.fetchWeatherData(40.7128, -74.0060, 'New York, NY');
+            }
         );
     }
 
     loadCurrentLocation() {
         this.showLoading();
 
-        // Check if geolocation is available and try to get current location
         if (navigator.geolocation) {
-            const options = {
-                enableHighAccuracy: false,
-                timeout: 8000,
-                maximumAge: 300000 // 5 minutes
-            };
-
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
-                    try {
-                        const { latitude, longitude } = position.coords;
-                        await this.fetchWeatherData(latitude, longitude);
-                    } catch (error) {
-                        console.error('Error with current location:', error);
-                        // Fallback to default location
-                        await this.fetchWeatherData(40.7128, -74.0060, 'New York, NY');
-                    }
+                    const { latitude, longitude } = position.coords;
+                    await this.fetchWeatherData(latitude, longitude);
                 },
-                async (error) => {
-                    console.log('Geolocation not available or denied, using default location');
-                    // Fallback to default location without showing error
+                async () => {
                     await this.fetchWeatherData(40.7128, -74.0060, 'New York, NY');
-                },
-                options
+                }
             );
         } else {
-            // Fallback to default location
             this.fetchWeatherData(40.7128, -74.0060, 'New York, NY');
         }
     }
 
     async fetchWeatherData(lat, lon, locationName = null) {
         try {
-            // Fetch current weather and forecast
             const weatherResponse = await fetch(
-                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,pressure_msl,wind_speed_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=7`
+                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,pressure_msl,wind_speed_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`
             );
-
-            if (!weatherResponse.ok) {
-                throw new Error(`Weather API request failed: ${weatherResponse.status}`);
-            }
 
             const weatherData = await weatherResponse.json();
 
-            // If no location name provided, reverse geocode
             if (!locationName) {
                 locationName = await this.reverseGeocode(lat, lon);
             }
+
+            // ✅ Save last data for toggling
+            this.lastWeatherData = weatherData;
+            this.lastLocationName = locationName;
 
             this.updateWeatherDisplay(weatherData, locationName);
             this.showWeatherData();
 
         } catch (error) {
-            console.error('Weather fetch error:', error);
-            this.showError('Unable to fetch weather data. Please check your internet connection and try again.');
+            this.showError('Unable to fetch weather data.');
         }
     }
 
@@ -228,10 +199,6 @@ class WeatherApp {
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`
             );
-
-            if (!response.ok) {
-                throw new Error('Reverse geocoding failed');
-            }
 
             const data = await response.json();
 
@@ -242,8 +209,7 @@ class WeatherApp {
                 return `${city.trim()}, ${country.trim()}`;
             }
             return 'Current Location';
-        } catch (error) {
-            console.error('Reverse geocoding error:', error);
+        } catch {
             return 'Current Location';
         }
     }
@@ -252,34 +218,30 @@ class WeatherApp {
         const current = data.current;
         const daily = data.daily;
 
-        // Update location
         document.getElementById('locationName').textContent = locationName;
 
-        // SHOW BOTH CELSIUS AND FAHRENHEIT FOR CURRENT TEMP
         const currentTempC = current.temperature_2m;
         const currentTempF = this.convertToFahrenheit(currentTempC);
 
-        document.getElementById('currentTemp').textContent = Math.round(currentTempC) + '°C / ' + Math.round(currentTempF) + '°F';
-
-        // SHOW BOTH CELSIUS AND FAHRENHEIT FOR FEELS LIKE
         const feelsLikeC = current.apparent_temperature;
         const feelsLikeF = this.convertToFahrenheit(feelsLikeC);
 
-        document.getElementById('feelsLike').textContent = Math.round(feelsLikeC) + '°C / ' + Math.round(feelsLikeF) + '°F';
+        // ✅ Show selected unit only
+        const displayTemp = this.isFahrenheit ? Math.round(currentTempF) + "°F" : Math.round(currentTempC) + "°C";
+        const displayFeels = this.isFahrenheit ? Math.round(feelsLikeF) + "°F" : Math.round(feelsLikeC) + "°C";
 
-        // Other details (same for both units)
+        document.getElementById('currentTemp').textContent = displayTemp;
+        document.getElementById('feelsLike').textContent = displayFeels;
+
         document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
         document.getElementById('windSpeed').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
         document.getElementById('pressure').textContent = `${Math.round(current.pressure_msl)} hPa`;
         document.getElementById('uvIndex').textContent = current.uv_index ? Math.round(current.uv_index) : 'N/A';
 
-        // Update weather description and icon
         const weatherInfo = this.getWeatherInfo(current.weather_code);
         document.getElementById('weatherDescription').textContent = weatherInfo.description;
         document.getElementById('currentIcon').src = weatherInfo.icon;
-        document.getElementById('currentIcon').alt = weatherInfo.description;
 
-        // Update 7-day forecast
         this.updateForecast(daily);
     }
 
@@ -288,14 +250,14 @@ class WeatherApp {
         forecastContainer.innerHTML = '';
 
         for (let i = 0; i < 7; i++) {
-            const forecastCard = this.createForecastCard(
+            const card = this.createForecastCard(
                 daily.time[i],
                 daily.weather_code[i],
                 daily.temperature_2m_max[i],
                 daily.temperature_2m_min[i],
                 i === 0
             );
-            forecastContainer.appendChild(forecastCard);
+            forecastContainer.appendChild(card);
         }
     }
 
@@ -306,11 +268,14 @@ class WeatherApp {
         const dayName = isToday ? 'Today' : new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
         const weatherInfo = this.getWeatherInfo(weatherCode);
 
-        // SHOW BOTH CELSIUS AND FAHRENHEIT IN FORECAST
         const maxTempC = Math.round(maxTemp);
         const minTempC = Math.round(minTemp);
         const maxTempF = Math.round(this.convertToFahrenheit(maxTemp));
         const minTempF = Math.round(this.convertToFahrenheit(minTemp));
+
+        // ✅ Switch units
+        const high = this.isFahrenheit ? maxTempF + "°F" : maxTempC + "°C";
+        const low = this.isFahrenheit ? minTempF + "°F" : minTempC + "°C";
 
         card.innerHTML = `
             <div class="forecast-card__day">${dayName}</div>
@@ -318,8 +283,8 @@ class WeatherApp {
                 <img src="${weatherInfo.icon}" alt="${weatherInfo.description}" width="50" height="50">
             </div>
             <div class="forecast-card__temps">
-                <span class="forecast-card__high">${maxTempC}°C / ${maxTempF}°F</span>
-                <span class="forecast-card__low">${minTempC}°C / ${minTempF}°F</span>
+                <span class="forecast-card__high">${high}</span>
+                <span class="forecast-card__low">${low}</span>
             </div>
             <div class="forecast-card__condition">${weatherInfo.description}</div>
         `;
@@ -328,7 +293,6 @@ class WeatherApp {
     }
 
     getWeatherInfo(weatherCode) {
-        // WMO Weather interpretation codes mapping
         const weatherCodes = {
             0: { description: 'Clear sky', icon: 'https://openweathermap.org/img/wn/01d@2x.png' },
             1: { description: 'Mainly clear', icon: 'https://openweathermap.org/img/wn/01d@2x.png' },
@@ -346,17 +310,17 @@ class WeatherApp {
             65: { description: 'Heavy rain', icon: 'https://openweathermap.org/img/wn/10d@2x.png' },
             66: { description: 'Light freezing rain', icon: 'https://openweathermap.org/img/wn/10d@2x.png' },
             67: { description: 'Heavy freezing rain', icon: 'https://openweathermap.org/img/wn/10d@2x.png' },
-            71: { description: 'Slight snow fall', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
-            73: { description: 'Moderate snow fall', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
-            75: { description: 'Heavy snow fall', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
+            71: { description: 'Slight snow', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
+            73: { description: 'Moderate snow', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
+            75: { description: 'Heavy snow', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
             77: { description: 'Snow grains', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
-            80: { description: 'Slight rain showers', icon: 'https://openweathermap.org/img/wn/09d@2x.png' },
+            80: { description: 'Light rain showers', icon: 'https://openweathermap.org/img/wn/09d@2x.png' },
             81: { description: 'Moderate rain showers', icon: 'https://openweathermap.org/img/wn/09d@2x.png' },
             82: { description: 'Violent rain showers', icon: 'https://openweathermap.org/img/wn/09d@2x.png' },
-            85: { description: 'Slight snow showers', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
+            85: { description: 'Light snow showers', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
             86: { description: 'Heavy snow showers', icon: 'https://openweathermap.org/img/wn/13d@2x.png' },
-            95: { description: 'Thunderstorm', icon: 'https://openweathermap.org/img/wn/11d@2x.png' },  
-            96: { description: 'Thunderstorm with slight hail', icon: 'https://openweathermap.org/img/wn/11d@2x.png' },
+            95: { description: 'Thunderstorm', icon: 'https://openweathermap.org/img/wn/11d@2x.png' },
+            96: { description: 'Thunderstorm with hail', icon: 'https://openweathermap.org/img/wn/11d@2x.png' },
             99: { description: 'Thunderstorm with heavy hail', icon: 'https://openweathermap.org/img/wn/11d@2x.png' }
         };
 
@@ -367,7 +331,6 @@ class WeatherApp {
     }
 }
 
-// Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new WeatherApp();
 });
