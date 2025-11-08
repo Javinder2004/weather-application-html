@@ -24,6 +24,11 @@ class WeatherApp {
         locationBtn.addEventListener('click', () => this.getCurrentLocation());
     }
 
+    // CONVERT CELSIUS TO FAHRENHEIT
+    convertToFahrenheit(celsius) {
+        return (celsius * 9 / 5) + 32;
+    }
+
     updateCurrentDate() {
         const now = new Date();
         const options = { 
@@ -64,14 +69,14 @@ class WeatherApp {
     async handleSearch() {
         const cityInput = document.getElementById('cityInput');
         const cityName = cityInput.value.trim();
-        
+
         if (!cityName) {
             this.showError('Please enter a city name');
             return;
         }
 
         this.showLoading();
-        
+
         try {
             const coordinates = await this.geocodeCity(cityName);
             if (coordinates) {
@@ -91,7 +96,7 @@ class WeatherApp {
                 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1`
             );
             const data = await response.json();
-            
+
             if (data && data.length > 0) {
                 const result = data[0];
                 return {
@@ -134,7 +139,7 @@ class WeatherApp {
             (error) => {
                 console.error('Geolocation error:', error);
                 let errorMessage = 'Unable to get your location. ';
-                
+
                 switch(error.code) {
                     case error.PERMISSION_DENIED:
                         errorMessage += 'Location access was denied. Please search for a city instead.';
@@ -149,7 +154,7 @@ class WeatherApp {
                         errorMessage += 'Please search for a city instead.';
                         break;
                 }
-                
+
                 this.showError(errorMessage);
             },
             options
@@ -158,7 +163,7 @@ class WeatherApp {
 
     loadCurrentLocation() {
         this.showLoading();
-        
+
         // Check if geolocation is available and try to get current location
         if (navigator.geolocation) {
             const options = {
@@ -223,13 +228,13 @@ class WeatherApp {
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`
             );
-            
+
             if (!response.ok) {
                 throw new Error('Reverse geocoding failed');
             }
-            
+
             const data = await response.json();
-            
+
             if (data && data.display_name) {
                 const parts = data.display_name.split(',');
                 const city = parts[0] || 'Unknown City';
@@ -250,9 +255,19 @@ class WeatherApp {
         // Update location
         document.getElementById('locationName').textContent = locationName;
 
-        // Update current weather
-        document.getElementById('currentTemp').textContent = Math.round(current.temperature_2m);
-        document.getElementById('feelsLike').textContent = Math.round(current.apparent_temperature);
+        // SHOW BOTH CELSIUS AND FAHRENHEIT FOR CURRENT TEMP
+        const currentTempC = current.temperature_2m;
+        const currentTempF = this.convertToFahrenheit(currentTempC);
+
+        document.getElementById('currentTemp').textContent = Math.round(currentTempC) + '°C / ' + Math.round(currentTempF) + '°F';
+
+        // SHOW BOTH CELSIUS AND FAHRENHEIT FOR FEELS LIKE
+        const feelsLikeC = current.apparent_temperature;
+        const feelsLikeF = this.convertToFahrenheit(feelsLikeC);
+
+        document.getElementById('feelsLike').textContent = Math.round(feelsLikeC) + '°C / ' + Math.round(feelsLikeF) + '°F';
+
+        // Other details (same for both units)
         document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
         document.getElementById('windSpeed').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
         document.getElementById('pressure').textContent = `${Math.round(current.pressure_msl)} hPa`;
@@ -291,14 +306,20 @@ class WeatherApp {
         const dayName = isToday ? 'Today' : new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
         const weatherInfo = this.getWeatherInfo(weatherCode);
 
+        // SHOW BOTH CELSIUS AND FAHRENHEIT IN FORECAST
+        const maxTempC = Math.round(maxTemp);
+        const minTempC = Math.round(minTemp);
+        const maxTempF = Math.round(this.convertToFahrenheit(maxTemp));
+        const minTempF = Math.round(this.convertToFahrenheit(minTemp));
+
         card.innerHTML = `
             <div class="forecast-card__day">${dayName}</div>
             <div class="forecast-card__icon">
                 <img src="${weatherInfo.icon}" alt="${weatherInfo.description}" width="50" height="50">
             </div>
             <div class="forecast-card__temps">
-                <span class="forecast-card__high">${Math.round(maxTemp)}°</span>
-                <span class="forecast-card__low">${Math.round(minTemp)}°</span>
+                <span class="forecast-card__high">${maxTempC}°C / ${maxTempF}°F</span>
+                <span class="forecast-card__low">${minTempC}°C / ${minTempF}°F</span>
             </div>
             <div class="forecast-card__condition">${weatherInfo.description}</div>
         `;
